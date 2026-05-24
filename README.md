@@ -157,19 +157,34 @@ Unknown / not available
 - `cover:0` is the cover / door / blind component in cover mode.
 - `input:0` / `input:1` are the physical wall switch or button inputs.
 
-## Suggested repository metadata
 
-Description:
+## Compatible devices
 
-```text
-Zabbix 7.4 template for Shelly 2PM Gen4 with switch mode, cover mode, Digest auth, and local HTTP RPC monitoring.
-```
+This template is designed for Shelly Gen2+/Gen3/Gen4 devices using the local RPC API and exposing either:
 
-Topics:
+- `switch:0` + `switch:1` for two-channel switch mode
+- `cover:0` for cover / shutter / door mode
 
-```text
-zabbix shelly shelly-2pm home-automation iot monitoring smart-home zabbix-template
-```
+### Expected to work
+
+| Device | Status | Notes |
+|---|---|---|
+| Shelly 2PM Gen4 | Tested target | Switch mode and cover mode support |
+| Shelly 2PM Gen3 | Expected compatible | Same switch/cover profile model |
+| Shelly Plus 2PM | Expected compatible | Same two-channel switch / single-cover profile model |
+| Shelly Pro 2PM | Expected compatible | DIN-rail version with switch/cover profiles |
+
+### Partial / future support
+
+| Device | Status | Notes |
+|---|---|---|
+| Shelly Pro Dual Cover PM | Partial | Should work for `cover:0`; template needs extension for `cover:1` |
+
+### Not intended for
+
+- Gen1 Shelly devices such as Shelly 2.5, because they use the older Gen1 HTTP API model.
+- Single-channel PM devices such as Shelly 1PM / Plus 1PM / 1PM Gen3, unless the template is simplified for `switch:0` only.
+- Dimmer, RGBW, Plug, EM, Pro 4PM, or other devices exposing different component types.
 
 ## License
 
