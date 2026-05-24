@@ -1,0 +1,2351 @@
+{
+    "zabbix_export": {
+        "version": "7.4",
+        "template_groups": [
+            {
+                "uuid": "6b5d4c3e2a1b4f8e9d7c5a3b1c9e7d6f",
+                "name": "Templates/IoT"
+            }
+        ],
+        "templates": [
+            {
+                "uuid": "2c712c095d7f4bb8b05f6da41e368e2a",
+                "template": "Shelly 2PM Gen4",
+                "name": "Shelly 2PM Gen4",
+                "description": "Monitoring template for Shelly 2PM Gen4 and compatible Shelly Gen2+ 2-channel power metering devices.\n\nHYBRID MODE SUPPORT:\n- Relay/switch mode: uses switch:0 and switch:1 component data.\n- Cover/roller/door mode: uses cover:0 component data.\n\nUses a single HTTP agent master item polling /rpc/Shelly.GetStatus every {$SHELLY.INTERVAL}. Per-channel, cover, and system metrics are dependent items using JSONPath or JavaScript preprocessing.\n\nAUTHENTICATION:\nUses DIGEST authentication for protected Shelly Gen2+ RPC endpoints. Configure host macros:\n  {$SHELLY_HOST} - Shelly IP/DNS without protocol, e.g. 192.168.1.50\n  {$SHELLY_USER} - username, usually admin\n  {$SHELLY_PASS} - Shelly device password\n\nNOTES:\nIf the device is configured as cover/roller/door, Shelly.GetStatus returns cover:0 instead of switch:0/switch:1. Switch-mode item preprocessing discards missing switch values cleanly, and cover-mode items collect the relevant metrics.\n\nTUNABLE MACROS:\n  {$SHELLY.INTERVAL}        - Poll interval (default: 60s)\n  {$SHELLY.TEMP.MAX}        - Max temperature °C (default: 75)\n  {$SHELLY.RSSI.MIN}        - Min WiFi RSSI dBm (default: -80)\n  {$SHELLY.POWER.MAX.CH0}   - Max power threshold channel 0 W (default: 2300)\n  {$SHELLY.POWER.MAX.CH1}   - Max power threshold channel 1 W (default: 2300)\n  {$SHELLY.POWER.MAX.COVER} - Max power threshold cover/door motor W (default: 2300)\n  {$SHELLY.NODATA.TIME}     - Time before unreachable trigger fires (default: 5m)",
+                "groups": [
+                    {
+                        "name": "Templates/IoT"
+                    }
+                ],
+                "items": [
+                    {
+                        "uuid": "aabb0001000040008000000000000001",
+                        "name": "Shelly: Get full status (master)",
+                        "type": "HTTP_AGENT",
+                        "key": "shelly.getstatus",
+                        "value_type": "TEXT",
+                        "delay": "{$SHELLY.INTERVAL}",
+                        "history": "1h",
+                        "trends": "0",
+                        "url": "http://{$SHELLY_HOST}/rpc/Shelly.GetStatus",
+                        "authtype": "DIGEST",
+                        "username": "{$SHELLY_USER}",
+                        "password": "{$SHELLY_PASS}",
+                        "retrieve_mode": "BODY",
+                        "request_method": "GET",
+                        "timeout": "10s",
+                        "description": "Master item: polls /rpc/Shelly.GetStatus via HTTP GET. Protected Shelly Gen2/Gen3/Gen4 RPC calls normally require HTTP Digest authentication when device authentication is enabled. Returns full JSON with switch:0, switch:1, sys, wifi, cloud, input:0, input:1. All dependent items parse this single response.",
+                        "tags": [
+                            {
+                                "tag": "component",
+                                "value": "raw"
+                            },
+                            {
+                                "tag": "source",
+                                "value": "api"
+                            }
+                        ]
+                    },
+                    {
+                        "uuid": "aabb0001000040008000000000000002",
+                        "name": "Shelly: Get device info (master)",
+                        "type": "HTTP_AGENT",
+                        "key": "shelly.getdeviceinfo",
+                        "value_type": "TEXT",
+                        "delay": "6h",
+                        "history": "1h",
+                        "trends": "0",
+                        "url": "http://{$SHELLY_HOST}/rpc/Shelly.GetDeviceInfo",
+                        "authtype": "DIGEST",
+                        "username": "{$SHELLY_USER}",
+                        "password": "{$SHELLY_PASS}",
+                        "retrieve_mode": "BODY",
+                        "request_method": "GET",
+                        "timeout": "10s",
+                        "description": "Master item: polls /rpc/Shelly.GetDeviceInfo every 6 hours. This RPC method may be available without authentication even when auth is enabled, so a successful response does not prove that credentials are valid for Shelly.GetStatus. Returns model, firmware version, MAC, auth status.",
+                        "tags": [
+                            {
+                                "tag": "component",
+                                "value": "raw"
+                            },
+                            {
+                                "tag": "source",
+                                "value": "api"
+                            }
+                        ]
+                    },
+                    {
+                        "uuid": "aabb0001000040008000000000000010",
+                        "name": "System: Uptime",
+                        "type": "DEPENDENT",
+                        "key": "shelly.sys.uptime",
+                        "value_type": "UNSIGNED",
+                        "delay": "0",
+                        "history": "7d",
+                        "trends": "365d",
+                        "units": "s",
+                        "master_item": {
+                            "key": "shelly.getstatus"
+                        },
+                        "description": "Seconds since last device reboot.",
+                        "preprocessing": [
+                            {
+                                "type": "JSONPATH",
+                                "parameters": [
+                                    "$.sys.uptime"
+                                ]
+                            },
+                            {
+                                "type": "DISCARD_UNCHANGED_HEARTBEAT",
+                                "parameters": [
+                                    "1h"
+                                ]
+                            }
+                        ],
+                        "tags": [
+                            {
+                                "tag": "component",
+                                "value": "system"
+                            }
+                        ]
+                    },
+                    {
+                        "uuid": "aabb0001000040008000000000000011",
+                        "name": "System: RAM free",
+                        "type": "DEPENDENT",
+                        "key": "shelly.sys.ram.free",
+                        "value_type": "UNSIGNED",
+                        "delay": "0",
+                        "history": "7d",
+                        "trends": "365d",
+                        "units": "B",
+                        "master_item": {
+                            "key": "shelly.getstatus"
+                        },
+                        "description": "Available free RAM in bytes.",
+                        "preprocessing": [
+                            {
+                                "type": "JSONPATH",
+                                "parameters": [
+                                    "$.sys.ram_free"
+                                ]
+                            },
+                            {
+                                "type": "DISCARD_UNCHANGED_HEARTBEAT",
+                                "parameters": [
+                                    "1h"
+                                ]
+                            }
+                        ],
+                        "tags": [
+                            {
+                                "tag": "component",
+                                "value": "system"
+                            }
+                        ]
+                    },
+                    {
+                        "uuid": "aabb0001000040008000000000000012",
+                        "name": "System: RAM total",
+                        "type": "DEPENDENT",
+                        "key": "shelly.sys.ram.size",
+                        "value_type": "UNSIGNED",
+                        "delay": "0",
+                        "history": "7d",
+                        "trends": "365d",
+                        "units": "B",
+                        "master_item": {
+                            "key": "shelly.getstatus"
+                        },
+                        "description": "Total RAM size in bytes.",
+                        "preprocessing": [
+                            {
+                                "type": "JSONPATH",
+                                "parameters": [
+                                    "$.sys.ram_size"
+                                ]
+                            },
+                            {
+                                "type": "DISCARD_UNCHANGED_HEARTBEAT",
+                                "parameters": [
+                                    "1d"
+                                ]
+                            }
+                        ],
+                        "tags": [
+                            {
+                                "tag": "component",
+                                "value": "system"
+                            }
+                        ]
+                    },
+                    {
+                        "uuid": "aabb0001000040008000000000000013",
+                        "name": "System: Filesystem free",
+                        "type": "DEPENDENT",
+                        "key": "shelly.sys.fs.free",
+                        "value_type": "UNSIGNED",
+                        "delay": "0",
+                        "history": "7d",
+                        "trends": "365d",
+                        "units": "B",
+                        "master_item": {
+                            "key": "shelly.getstatus"
+                        },
+                        "description": "Free filesystem space in bytes.",
+                        "preprocessing": [
+                            {
+                                "type": "JSONPATH",
+                                "parameters": [
+                                    "$.sys.fs_free"
+                                ]
+                            },
+                            {
+                                "type": "DISCARD_UNCHANGED_HEARTBEAT",
+                                "parameters": [
+                                    "1h"
+                                ]
+                            }
+                        ],
+                        "tags": [
+                            {
+                                "tag": "component",
+                                "value": "system"
+                            }
+                        ]
+                    },
+                    {
+                        "uuid": "aabb0001000040008000000000000014",
+                        "name": "System: Restart required",
+                        "type": "DEPENDENT",
+                        "key": "shelly.sys.restart.required",
+                        "value_type": "UNSIGNED",
+                        "delay": "0",
+                        "history": "7d",
+                        "trends": "365d",
+                        "master_item": {
+                            "key": "shelly.getstatus"
+                        },
+                        "description": "Set to 1 when the device requires a reboot to apply a configuration change.",
+                        "valuemap": {
+                            "name": "Boolean (Yes/No)"
+                        },
+                        "preprocessing": [
+                            {
+                                "type": "JSONPATH",
+                                "parameters": [
+                                    "$.sys.restart_required"
+                                ]
+                            },
+                            {
+                                "type": "BOOL_TO_DECIMAL",
+                                "parameters": []
+                            },
+                            {
+                                "type": "DISCARD_UNCHANGED_HEARTBEAT",
+                                "parameters": [
+                                    "1h"
+                                ]
+                            }
+                        ],
+                        "tags": [
+                            {
+                                "tag": "component",
+                                "value": "system"
+                            }
+                        ]
+                    },
+                    {
+                        "uuid": "aabb0001000040008000000000000015",
+                        "name": "System: Stable firmware update available",
+                        "type": "DEPENDENT",
+                        "key": "shelly.sys.update.available",
+                        "value_type": "UNSIGNED",
+                        "delay": "0",
+                        "history": "7d",
+                        "trends": "365d",
+                        "master_item": {
+                            "key": "shelly.getstatus"
+                        },
+                        "description": "1 if a stable firmware update is available for this device, 0 otherwise.",
+                        "valuemap": {
+                            "name": "Boolean (Yes/No)"
+                        },
+                        "preprocessing": [
+                            {
+                                "type": "JSONPATH",
+                                "parameters": [
+                                    "$.sys.available_updates"
+                                ]
+                            },
+                            {
+                                "type": "JAVASCRIPT",
+                                "parameters": [
+                                    "try { var u = JSON.parse(value); return (u.stable !== undefined) ? 1 : 0; } catch(e) { return 0; }"
+                                ]
+                            },
+                            {
+                                "type": "DISCARD_UNCHANGED_HEARTBEAT",
+                                "parameters": [
+                                    "6h"
+                                ]
+                            }
+                        ],
+                        "tags": [
+                            {
+                                "tag": "component",
+                                "value": "system"
+                            }
+                        ]
+                    },
+                    {
+                        "uuid": "aabb0001000040008000000000000020",
+                        "name": "WiFi: Signal strength (RSSI)",
+                        "type": "DEPENDENT",
+                        "key": "shelly.wifi.rssi",
+                        "value_type": "FLOAT",
+                        "delay": "0",
+                        "history": "7d",
+                        "trends": "365d",
+                        "units": "dBm",
+                        "master_item": {
+                            "key": "shelly.getstatus"
+                        },
+                        "description": "WiFi received signal strength indicator. Typical good: >= -70 dBm. Poor: <= -80 dBm.",
+                        "preprocessing": [
+                            {
+                                "type": "JSONPATH",
+                                "parameters": [
+                                    "$.wifi.rssi"
+                                ]
+                            },
+                            {
+                                "type": "DISCARD_UNCHANGED_HEARTBEAT",
+                                "parameters": [
+                                    "1h"
+                                ]
+                            }
+                        ],
+                        "tags": [
+                            {
+                                "tag": "component",
+                                "value": "wifi"
+                            }
+                        ]
+                    },
+                    {
+                        "uuid": "aabb0001000040008000000000000021",
+                        "name": "WiFi: Connected SSID",
+                        "type": "DEPENDENT",
+                        "key": "shelly.wifi.ssid",
+                        "value_type": "CHAR",
+                        "delay": "0",
+                        "history": "7d",
+                        "trends": "0",
+                        "master_item": {
+                            "key": "shelly.getstatus"
+                        },
+                        "description": "SSID of the WiFi network the device is currently connected to.",
+                        "preprocessing": [
+                            {
+                                "type": "JSONPATH",
+                                "parameters": [
+                                    "$.wifi.ssid"
+                                ]
+                            },
+                            {
+                                "type": "DISCARD_UNCHANGED_HEARTBEAT",
+                                "parameters": [
+                                    "1h"
+                                ]
+                            }
+                        ],
+                        "tags": [
+                            {
+                                "tag": "component",
+                                "value": "wifi"
+                            }
+                        ]
+                    },
+                    {
+                        "uuid": "aabb0001000040008000000000000022",
+                        "name": "WiFi: IP address",
+                        "type": "DEPENDENT",
+                        "key": "shelly.wifi.ip",
+                        "value_type": "CHAR",
+                        "delay": "0",
+                        "history": "7d",
+                        "trends": "0",
+                        "master_item": {
+                            "key": "shelly.getstatus"
+                        },
+                        "description": "Current IPv4 address assigned to the device on the WiFi network.",
+                        "preprocessing": [
+                            {
+                                "type": "JSONPATH",
+                                "parameters": [
+                                    "$.wifi.sta_ip"
+                                ]
+                            },
+                            {
+                                "type": "DISCARD_UNCHANGED_HEARTBEAT",
+                                "parameters": [
+                                    "1h"
+                                ]
+                            }
+                        ],
+                        "tags": [
+                            {
+                                "tag": "component",
+                                "value": "wifi"
+                            }
+                        ]
+                    },
+                    {
+                        "uuid": "aabb0001000040008000000000000030",
+                        "name": "Channel 0: Relay state",
+                        "type": "DEPENDENT",
+                        "key": "shelly.switch.output[0]",
+                        "value_type": "UNSIGNED",
+                        "delay": "0",
+                        "history": "7d",
+                        "trends": "365d",
+                        "master_item": {
+                            "key": "shelly.getstatus"
+                        },
+                        "description": "Current output state of relay channel 0: 1=ON, 0=OFF.",
+                        "valuemap": {
+                            "name": "Shelly relay state"
+                        },
+                        "preprocessing": [
+                            {
+                                "type": "JSONPATH",
+                                "parameters": [
+                                    "$.['switch:0'].output"
+                                ],
+                                "error_handler": "DISCARD_VALUE",
+                                "error_handler_params": ""
+                            },
+                            {
+                                "type": "BOOL_TO_DECIMAL",
+                                "parameters": []
+                            },
+                            {
+                                "type": "DISCARD_UNCHANGED_HEARTBEAT",
+                                "parameters": [
+                                    "1h"
+                                ]
+                            }
+                        ],
+                        "tags": [
+                            {
+                                "tag": "component",
+                                "value": "relay"
+                            },
+                            {
+                                "tag": "channel",
+                                "value": "0"
+                            }
+                        ]
+                    },
+                    {
+                        "uuid": "aabb0001000040008000000000000031",
+                        "name": "Channel 0: Active power",
+                        "type": "DEPENDENT",
+                        "key": "shelly.switch.apower[0]",
+                        "value_type": "FLOAT",
+                        "delay": "0",
+                        "history": "7d",
+                        "trends": "365d",
+                        "units": "W",
+                        "master_item": {
+                            "key": "shelly.getstatus"
+                        },
+                        "description": "Active (real) power consumption on channel 0 in Watts.",
+                        "preprocessing": [
+                            {
+                                "type": "JSONPATH",
+                                "parameters": [
+                                    "$.['switch:0'].apower"
+                                ],
+                                "error_handler": "DISCARD_VALUE",
+                                "error_handler_params": ""
+                            }
+                        ],
+                        "tags": [
+                            {
+                                "tag": "component",
+                                "value": "power"
+                            },
+                            {
+                                "tag": "channel",
+                                "value": "0"
+                            }
+                        ]
+                    },
+                    {
+                        "uuid": "aabb0001000040008000000000000032",
+                        "name": "Channel 0: Voltage",
+                        "type": "DEPENDENT",
+                        "key": "shelly.switch.voltage[0]",
+                        "value_type": "FLOAT",
+                        "delay": "0",
+                        "history": "7d",
+                        "trends": "365d",
+                        "units": "V",
+                        "master_item": {
+                            "key": "shelly.getstatus"
+                        },
+                        "description": "AC mains voltage measured at channel 0 in Volts.",
+                        "preprocessing": [
+                            {
+                                "type": "JSONPATH",
+                                "parameters": [
+                                    "$.['switch:0'].voltage"
+                                ],
+                                "error_handler": "DISCARD_VALUE",
+                                "error_handler_params": ""
+                            },
+                            {
+                                "type": "DISCARD_UNCHANGED_HEARTBEAT",
+                                "parameters": [
+                                    "1h"
+                                ]
+                            }
+                        ],
+                        "tags": [
+                            {
+                                "tag": "component",
+                                "value": "power"
+                            },
+                            {
+                                "tag": "channel",
+                                "value": "0"
+                            }
+                        ]
+                    },
+                    {
+                        "uuid": "aabb0001000040008000000000000033",
+                        "name": "Channel 0: Current",
+                        "type": "DEPENDENT",
+                        "key": "shelly.switch.current[0]",
+                        "value_type": "FLOAT",
+                        "delay": "0",
+                        "history": "7d",
+                        "trends": "365d",
+                        "units": "A",
+                        "master_item": {
+                            "key": "shelly.getstatus"
+                        },
+                        "description": "Load current through channel 0 relay in Amperes.",
+                        "preprocessing": [
+                            {
+                                "type": "JSONPATH",
+                                "parameters": [
+                                    "$.['switch:0'].current"
+                                ],
+                                "error_handler": "DISCARD_VALUE",
+                                "error_handler_params": ""
+                            }
+                        ],
+                        "tags": [
+                            {
+                                "tag": "component",
+                                "value": "power"
+                            },
+                            {
+                                "tag": "channel",
+                                "value": "0"
+                            }
+                        ]
+                    },
+                    {
+                        "uuid": "aabb0001000040008000000000000034",
+                        "name": "Channel 0: AC frequency",
+                        "type": "DEPENDENT",
+                        "key": "shelly.switch.freq[0]",
+                        "value_type": "FLOAT",
+                        "delay": "0",
+                        "history": "7d",
+                        "trends": "365d",
+                        "units": "Hz",
+                        "master_item": {
+                            "key": "shelly.getstatus"
+                        },
+                        "description": "Mains AC frequency measured at channel 0 in Hertz.",
+                        "preprocessing": [
+                            {
+                                "type": "JSONPATH",
+                                "parameters": [
+                                    "$.['switch:0'].freq"
+                                ],
+                                "error_handler": "DISCARD_VALUE",
+                                "error_handler_params": ""
+                            },
+                            {
+                                "type": "DISCARD_UNCHANGED_HEARTBEAT",
+                                "parameters": [
+                                    "1h"
+                                ]
+                            }
+                        ],
+                        "tags": [
+                            {
+                                "tag": "component",
+                                "value": "power"
+                            },
+                            {
+                                "tag": "channel",
+                                "value": "0"
+                            }
+                        ]
+                    },
+                    {
+                        "uuid": "aabb0001000040008000000000000035",
+                        "name": "Channel 0: Power factor",
+                        "type": "DEPENDENT",
+                        "key": "shelly.switch.pf[0]",
+                        "value_type": "FLOAT",
+                        "delay": "0",
+                        "history": "7d",
+                        "trends": "365d",
+                        "master_item": {
+                            "key": "shelly.getstatus"
+                        },
+                        "description": "Power factor at channel 0 (dimensionless, range 0.0-1.0). Value is discarded if not present in API response (some firmware versions omit this field).",
+                        "preprocessing": [
+                            {
+                                "type": "JSONPATH",
+                                "parameters": [
+                                    "$.['switch:0'].pf"
+                                ],
+                                "error_handler": "DISCARD_VALUE",
+                                "error_handler_params": ""
+                            }
+                        ],
+                        "tags": [
+                            {
+                                "tag": "component",
+                                "value": "power"
+                            },
+                            {
+                                "tag": "channel",
+                                "value": "0"
+                            }
+                        ]
+                    },
+                    {
+                        "uuid": "aabb0001000040008000000000000036",
+                        "name": "Channel 0: Total energy consumed",
+                        "type": "DEPENDENT",
+                        "key": "shelly.switch.energy[0]",
+                        "value_type": "FLOAT",
+                        "delay": "0",
+                        "history": "7d",
+                        "trends": "365d",
+                        "units": "Wh",
+                        "master_item": {
+                            "key": "shelly.getstatus"
+                        },
+                        "description": "Cumulative total energy consumed by channel 0 load in Watt-hours. Resets only on device factory reset.",
+                        "preprocessing": [
+                            {
+                                "type": "JSONPATH",
+                                "parameters": [
+                                    "$.['switch:0'].aenergy.total"
+                                ],
+                                "error_handler": "DISCARD_VALUE",
+                                "error_handler_params": ""
+                            },
+                            {
+                                "type": "DISCARD_UNCHANGED_HEARTBEAT",
+                                "parameters": [
+                                    "1h"
+                                ]
+                            }
+                        ],
+                        "tags": [
+                            {
+                                "tag": "component",
+                                "value": "power"
+                            },
+                            {
+                                "tag": "channel",
+                                "value": "0"
+                            }
+                        ]
+                    },
+                    {
+                        "uuid": "aabb0001000040008000000000000037",
+                        "name": "Channel 0: Relay temperature",
+                        "type": "DEPENDENT",
+                        "key": "shelly.switch.temperature[0]",
+                        "value_type": "FLOAT",
+                        "delay": "0",
+                        "history": "7d",
+                        "trends": "365d",
+                        "units": "°C",
+                        "master_item": {
+                            "key": "shelly.getstatus"
+                        },
+                        "description": "Internal temperature of the relay/switching element on channel 0 in Celsius.",
+                        "preprocessing": [
+                            {
+                                "type": "JSONPATH",
+                                "parameters": [
+                                    "$.['switch:0'].temperature.tC"
+                                ],
+                                "error_handler": "DISCARD_VALUE",
+                                "error_handler_params": ""
+                            },
+                            {
+                                "type": "DISCARD_UNCHANGED_HEARTBEAT",
+                                "parameters": [
+                                    "1h"
+                                ]
+                            }
+                        ],
+                        "tags": [
+                            {
+                                "tag": "component",
+                                "value": "relay"
+                            },
+                            {
+                                "tag": "channel",
+                                "value": "0"
+                            }
+                        ]
+                    },
+                    {
+                        "uuid": "aabb0001000040008000000000000038",
+                        "name": "Channel 0: Last control source",
+                        "type": "DEPENDENT",
+                        "key": "shelly.switch.source[0]",
+                        "value_type": "CHAR",
+                        "delay": "0",
+                        "history": "7d",
+                        "trends": "0",
+                        "master_item": {
+                            "key": "shelly.getstatus"
+                        },
+                        "description": "The last source that changed channel 0 relay state. Possible values: HTTP_in, timer, init, WS_in, MQTT, input, loopback, UI, RPC.",
+                        "preprocessing": [
+                            {
+                                "type": "JSONPATH",
+                                "parameters": [
+                                    "$.['switch:0'].source"
+                                ],
+                                "error_handler": "DISCARD_VALUE",
+                                "error_handler_params": ""
+                            },
+                            {
+                                "type": "DISCARD_UNCHANGED_HEARTBEAT",
+                                "parameters": [
+                                    "1h"
+                                ]
+                            }
+                        ],
+                        "tags": [
+                            {
+                                "tag": "component",
+                                "value": "relay"
+                            },
+                            {
+                                "tag": "channel",
+                                "value": "0"
+                            }
+                        ]
+                    },
+                    {
+                        "uuid": "aabb0001000040008000000000000040",
+                        "name": "Channel 1: Relay state",
+                        "type": "DEPENDENT",
+                        "key": "shelly.switch.output[1]",
+                        "value_type": "UNSIGNED",
+                        "delay": "0",
+                        "history": "7d",
+                        "trends": "365d",
+                        "master_item": {
+                            "key": "shelly.getstatus"
+                        },
+                        "description": "Current output state of relay channel 1: 1=ON, 0=OFF.",
+                        "valuemap": {
+                            "name": "Shelly relay state"
+                        },
+                        "preprocessing": [
+                            {
+                                "type": "JSONPATH",
+                                "parameters": [
+                                    "$.['switch:1'].output"
+                                ],
+                                "error_handler": "DISCARD_VALUE",
+                                "error_handler_params": ""
+                            },
+                            {
+                                "type": "BOOL_TO_DECIMAL",
+                                "parameters": []
+                            },
+                            {
+                                "type": "DISCARD_UNCHANGED_HEARTBEAT",
+                                "parameters": [
+                                    "1h"
+                                ]
+                            }
+                        ],
+                        "tags": [
+                            {
+                                "tag": "component",
+                                "value": "relay"
+                            },
+                            {
+                                "tag": "channel",
+                                "value": "1"
+                            }
+                        ]
+                    },
+                    {
+                        "uuid": "aabb0001000040008000000000000041",
+                        "name": "Channel 1: Active power",
+                        "type": "DEPENDENT",
+                        "key": "shelly.switch.apower[1]",
+                        "value_type": "FLOAT",
+                        "delay": "0",
+                        "history": "7d",
+                        "trends": "365d",
+                        "units": "W",
+                        "master_item": {
+                            "key": "shelly.getstatus"
+                        },
+                        "description": "Active (real) power consumption on channel 1 in Watts.",
+                        "preprocessing": [
+                            {
+                                "type": "JSONPATH",
+                                "parameters": [
+                                    "$.['switch:1'].apower"
+                                ],
+                                "error_handler": "DISCARD_VALUE",
+                                "error_handler_params": ""
+                            }
+                        ],
+                        "tags": [
+                            {
+                                "tag": "component",
+                                "value": "power"
+                            },
+                            {
+                                "tag": "channel",
+                                "value": "1"
+                            }
+                        ]
+                    },
+                    {
+                        "uuid": "aabb0001000040008000000000000042",
+                        "name": "Channel 1: Voltage",
+                        "type": "DEPENDENT",
+                        "key": "shelly.switch.voltage[1]",
+                        "value_type": "FLOAT",
+                        "delay": "0",
+                        "history": "7d",
+                        "trends": "365d",
+                        "units": "V",
+                        "master_item": {
+                            "key": "shelly.getstatus"
+                        },
+                        "description": "AC mains voltage measured at channel 1 in Volts.",
+                        "preprocessing": [
+                            {
+                                "type": "JSONPATH",
+                                "parameters": [
+                                    "$.['switch:1'].voltage"
+                                ],
+                                "error_handler": "DISCARD_VALUE",
+                                "error_handler_params": ""
+                            },
+                            {
+                                "type": "DISCARD_UNCHANGED_HEARTBEAT",
+                                "parameters": [
+                                    "1h"
+                                ]
+                            }
+                        ],
+                        "tags": [
+                            {
+                                "tag": "component",
+                                "value": "power"
+                            },
+                            {
+                                "tag": "channel",
+                                "value": "1"
+                            }
+                        ]
+                    },
+                    {
+                        "uuid": "aabb0001000040008000000000000043",
+                        "name": "Channel 1: Current",
+                        "type": "DEPENDENT",
+                        "key": "shelly.switch.current[1]",
+                        "value_type": "FLOAT",
+                        "delay": "0",
+                        "history": "7d",
+                        "trends": "365d",
+                        "units": "A",
+                        "master_item": {
+                            "key": "shelly.getstatus"
+                        },
+                        "description": "Load current through channel 1 relay in Amperes.",
+                        "preprocessing": [
+                            {
+                                "type": "JSONPATH",
+                                "parameters": [
+                                    "$.['switch:1'].current"
+                                ],
+                                "error_handler": "DISCARD_VALUE",
+                                "error_handler_params": ""
+                            }
+                        ],
+                        "tags": [
+                            {
+                                "tag": "component",
+                                "value": "power"
+                            },
+                            {
+                                "tag": "channel",
+                                "value": "1"
+                            }
+                        ]
+                    },
+                    {
+                        "uuid": "aabb0001000040008000000000000044",
+                        "name": "Channel 1: AC frequency",
+                        "type": "DEPENDENT",
+                        "key": "shelly.switch.freq[1]",
+                        "value_type": "FLOAT",
+                        "delay": "0",
+                        "history": "7d",
+                        "trends": "365d",
+                        "units": "Hz",
+                        "master_item": {
+                            "key": "shelly.getstatus"
+                        },
+                        "description": "Mains AC frequency measured at channel 1 in Hertz.",
+                        "preprocessing": [
+                            {
+                                "type": "JSONPATH",
+                                "parameters": [
+                                    "$.['switch:1'].freq"
+                                ],
+                                "error_handler": "DISCARD_VALUE",
+                                "error_handler_params": ""
+                            },
+                            {
+                                "type": "DISCARD_UNCHANGED_HEARTBEAT",
+                                "parameters": [
+                                    "1h"
+                                ]
+                            }
+                        ],
+                        "tags": [
+                            {
+                                "tag": "component",
+                                "value": "power"
+                            },
+                            {
+                                "tag": "channel",
+                                "value": "1"
+                            }
+                        ]
+                    },
+                    {
+                        "uuid": "aabb0001000040008000000000000045",
+                        "name": "Channel 1: Power factor",
+                        "type": "DEPENDENT",
+                        "key": "shelly.switch.pf[1]",
+                        "value_type": "FLOAT",
+                        "delay": "0",
+                        "history": "7d",
+                        "trends": "365d",
+                        "master_item": {
+                            "key": "shelly.getstatus"
+                        },
+                        "description": "Power factor at channel 1 (dimensionless, range 0.0-1.0). Value is discarded if not present in API response.",
+                        "preprocessing": [
+                            {
+                                "type": "JSONPATH",
+                                "parameters": [
+                                    "$.['switch:1'].pf"
+                                ],
+                                "error_handler": "DISCARD_VALUE",
+                                "error_handler_params": ""
+                            }
+                        ],
+                        "tags": [
+                            {
+                                "tag": "component",
+                                "value": "power"
+                            },
+                            {
+                                "tag": "channel",
+                                "value": "1"
+                            }
+                        ]
+                    },
+                    {
+                        "uuid": "aabb0001000040008000000000000046",
+                        "name": "Channel 1: Total energy consumed",
+                        "type": "DEPENDENT",
+                        "key": "shelly.switch.energy[1]",
+                        "value_type": "FLOAT",
+                        "delay": "0",
+                        "history": "7d",
+                        "trends": "365d",
+                        "units": "Wh",
+                        "master_item": {
+                            "key": "shelly.getstatus"
+                        },
+                        "description": "Cumulative total energy consumed by channel 1 load in Watt-hours. Resets only on device factory reset.",
+                        "preprocessing": [
+                            {
+                                "type": "JSONPATH",
+                                "parameters": [
+                                    "$.['switch:1'].aenergy.total"
+                                ],
+                                "error_handler": "DISCARD_VALUE",
+                                "error_handler_params": ""
+                            },
+                            {
+                                "type": "DISCARD_UNCHANGED_HEARTBEAT",
+                                "parameters": [
+                                    "1h"
+                                ]
+                            }
+                        ],
+                        "tags": [
+                            {
+                                "tag": "component",
+                                "value": "power"
+                            },
+                            {
+                                "tag": "channel",
+                                "value": "1"
+                            }
+                        ]
+                    },
+                    {
+                        "uuid": "aabb0001000040008000000000000047",
+                        "name": "Channel 1: Relay temperature",
+                        "type": "DEPENDENT",
+                        "key": "shelly.switch.temperature[1]",
+                        "value_type": "FLOAT",
+                        "delay": "0",
+                        "history": "7d",
+                        "trends": "365d",
+                        "units": "°C",
+                        "master_item": {
+                            "key": "shelly.getstatus"
+                        },
+                        "description": "Internal temperature of the relay/switching element on channel 1 in Celsius.",
+                        "preprocessing": [
+                            {
+                                "type": "JSONPATH",
+                                "parameters": [
+                                    "$.['switch:1'].temperature.tC"
+                                ],
+                                "error_handler": "DISCARD_VALUE",
+                                "error_handler_params": ""
+                            },
+                            {
+                                "type": "DISCARD_UNCHANGED_HEARTBEAT",
+                                "parameters": [
+                                    "1h"
+                                ]
+                            }
+                        ],
+                        "tags": [
+                            {
+                                "tag": "component",
+                                "value": "relay"
+                            },
+                            {
+                                "tag": "channel",
+                                "value": "1"
+                            }
+                        ]
+                    },
+                    {
+                        "uuid": "aabb0001000040008000000000000048",
+                        "name": "Channel 1: Last control source",
+                        "type": "DEPENDENT",
+                        "key": "shelly.switch.source[1]",
+                        "value_type": "CHAR",
+                        "delay": "0",
+                        "history": "7d",
+                        "trends": "0",
+                        "master_item": {
+                            "key": "shelly.getstatus"
+                        },
+                        "description": "The last source that changed channel 1 relay state. Possible values: HTTP_in, timer, init, WS_in, MQTT, input, loopback, UI, RPC.",
+                        "preprocessing": [
+                            {
+                                "type": "JSONPATH",
+                                "parameters": [
+                                    "$.['switch:1'].source"
+                                ],
+                                "error_handler": "DISCARD_VALUE",
+                                "error_handler_params": ""
+                            },
+                            {
+                                "type": "DISCARD_UNCHANGED_HEARTBEAT",
+                                "parameters": [
+                                    "1h"
+                                ]
+                            }
+                        ],
+                        "tags": [
+                            {
+                                "tag": "component",
+                                "value": "relay"
+                            },
+                            {
+                                "tag": "channel",
+                                "value": "1"
+                            }
+                        ]
+                    },
+                    {
+                        "uuid": "aabb0001000040008000000000000060",
+                        "name": "Input 0: Physical switch state",
+                        "type": "DEPENDENT",
+                        "key": "shelly.input.state[0]",
+                        "value_type": "UNSIGNED",
+                        "delay": "0",
+                        "history": "7d",
+                        "trends": "365d",
+                        "master_item": {
+                            "key": "shelly.getstatus"
+                        },
+                        "description": "State of physical input terminal 0 (button/switch). 1=pressed/closed, 0=released/open. Discarded if the field is absent.",
+                        "valuemap": {
+                            "name": "Shelly input state"
+                        },
+                        "preprocessing": [
+                            {
+                                "type": "JSONPATH",
+                                "parameters": [
+                                    "$.['input:0'].state"
+                                ],
+                                "error_handler": "DISCARD_VALUE",
+                                "error_handler_params": ""
+                            },
+                            {
+                                "type": "BOOL_TO_DECIMAL",
+                                "parameters": []
+                            },
+                            {
+                                "type": "DISCARD_UNCHANGED_HEARTBEAT",
+                                "parameters": [
+                                    "1h"
+                                ]
+                            }
+                        ],
+                        "tags": [
+                            {
+                                "tag": "component",
+                                "value": "input"
+                            },
+                            {
+                                "tag": "channel",
+                                "value": "0"
+                            }
+                        ]
+                    },
+                    {
+                        "uuid": "aabb0001000040008000000000000061",
+                        "name": "Input 1: Physical switch state",
+                        "type": "DEPENDENT",
+                        "key": "shelly.input.state[1]",
+                        "value_type": "UNSIGNED",
+                        "delay": "0",
+                        "history": "7d",
+                        "trends": "365d",
+                        "master_item": {
+                            "key": "shelly.getstatus"
+                        },
+                        "description": "State of physical input terminal 1 (button/switch). 1=pressed/closed, 0=released/open. Discarded if the field is absent.",
+                        "valuemap": {
+                            "name": "Shelly input state"
+                        },
+                        "preprocessing": [
+                            {
+                                "type": "JSONPATH",
+                                "parameters": [
+                                    "$.['input:1'].state"
+                                ],
+                                "error_handler": "DISCARD_VALUE",
+                                "error_handler_params": ""
+                            },
+                            {
+                                "type": "BOOL_TO_DECIMAL",
+                                "parameters": []
+                            },
+                            {
+                                "type": "DISCARD_UNCHANGED_HEARTBEAT",
+                                "parameters": [
+                                    "1h"
+                                ]
+                            }
+                        ],
+                        "tags": [
+                            {
+                                "tag": "component",
+                                "value": "input"
+                            },
+                            {
+                                "tag": "channel",
+                                "value": "1"
+                            }
+                        ]
+                    },
+                    {
+                        "uuid": "aabb0001000040008000000000000050",
+                        "name": "Device: Model",
+                        "type": "DEPENDENT",
+                        "key": "shelly.info.model",
+                        "value_type": "CHAR",
+                        "delay": "0",
+                        "history": "7d",
+                        "trends": "0",
+                        "master_item": {
+                            "key": "shelly.getdeviceinfo"
+                        },
+                        "description": "Hardware model identifier (e.g. SNSW-102P16EU for Plus 2PM).",
+                        "preprocessing": [
+                            {
+                                "type": "JSONPATH",
+                                "parameters": [
+                                    "$.model"
+                                ]
+                            },
+                            {
+                                "type": "DISCARD_UNCHANGED_HEARTBEAT",
+                                "parameters": [
+                                    "1d"
+                                ]
+                            }
+                        ],
+                        "tags": [
+                            {
+                                "tag": "component",
+                                "value": "device"
+                            }
+                        ]
+                    },
+                    {
+                        "uuid": "aabb0001000040008000000000000051",
+                        "name": "Device: Firmware version",
+                        "type": "DEPENDENT",
+                        "key": "shelly.info.ver",
+                        "value_type": "CHAR",
+                        "delay": "0",
+                        "history": "7d",
+                        "trends": "0",
+                        "master_item": {
+                            "key": "shelly.getdeviceinfo"
+                        },
+                        "description": "Short firmware version string (e.g. 1.4.2).",
+                        "preprocessing": [
+                            {
+                                "type": "JSONPATH",
+                                "parameters": [
+                                    "$.ver"
+                                ]
+                            },
+                            {
+                                "type": "DISCARD_UNCHANGED_HEARTBEAT",
+                                "parameters": [
+                                    "1d"
+                                ]
+                            }
+                        ],
+                        "tags": [
+                            {
+                                "tag": "component",
+                                "value": "device"
+                            }
+                        ]
+                    },
+                    {
+                        "uuid": "aabb0001000040008000000000000052",
+                        "name": "Device: Firmware build ID",
+                        "type": "DEPENDENT",
+                        "key": "shelly.info.fw_id",
+                        "value_type": "CHAR",
+                        "delay": "0",
+                        "history": "7d",
+                        "trends": "0",
+                        "master_item": {
+                            "key": "shelly.getdeviceinfo"
+                        },
+                        "description": "Full firmware build identifier including build date and git hash.",
+                        "preprocessing": [
+                            {
+                                "type": "JSONPATH",
+                                "parameters": [
+                                    "$.fw_id"
+                                ]
+                            },
+                            {
+                                "type": "DISCARD_UNCHANGED_HEARTBEAT",
+                                "parameters": [
+                                    "1d"
+                                ]
+                            }
+                        ],
+                        "tags": [
+                            {
+                                "tag": "component",
+                                "value": "device"
+                            }
+                        ]
+                    },
+                    {
+                        "uuid": "aabb0001000040008000000000000053",
+                        "name": "Device: Authentication enabled",
+                        "type": "DEPENDENT",
+                        "key": "shelly.info.auth.enabled",
+                        "value_type": "UNSIGNED",
+                        "delay": "0",
+                        "history": "7d",
+                        "trends": "365d",
+                        "master_item": {
+                            "key": "shelly.getdeviceinfo"
+                        },
+                        "description": "1 if HTTP authentication is currently enabled on the device, 0 if the device is unprotected.",
+                        "valuemap": {
+                            "name": "Boolean (Yes/No)"
+                        },
+                        "preprocessing": [
+                            {
+                                "type": "JSONPATH",
+                                "parameters": [
+                                    "$.auth_en"
+                                ]
+                            },
+                            {
+                                "type": "BOOL_TO_DECIMAL",
+                                "parameters": []
+                            },
+                            {
+                                "type": "DISCARD_UNCHANGED_HEARTBEAT",
+                                "parameters": [
+                                    "1d"
+                                ]
+                            }
+                        ],
+                        "tags": [
+                            {
+                                "tag": "component",
+                                "value": "device"
+                            }
+                        ]
+                    },
+                    {
+                        "uuid": "69c65cb770684fc9a58250839738bb77",
+                        "name": "Device: Active component mode",
+                        "type": "DEPENDENT",
+                        "key": "shelly.device.mode",
+                        "value_type": "CHAR",
+                        "delay": "0",
+                        "history": "7d",
+                        "trends": "0",
+                        "master_item": {
+                            "key": "shelly.getstatus"
+                        },
+                        "description": "Detects whether Shelly.GetStatus exposes cover:0, switch:0/switch:1, or neither. Useful for distinguishing cover/roller/door mode from relay mode.",
+                        "preprocessing": [
+                            {
+                                "type": "JAVASCRIPT",
+                                "parameters": [
+                                    "var o = JSON.parse(value); if (o['cover:0'] !== undefined) return 'cover'; if (o['switch:0'] !== undefined || o['switch:1'] !== undefined) return 'switch'; return 'unknown';"
+                                ]
+                            },
+                            {
+                                "type": "DISCARD_UNCHANGED_HEARTBEAT",
+                                "parameters": [
+                                    "1h"
+                                ]
+                            }
+                        ],
+                        "tags": [
+                            {
+                                "tag": "component",
+                                "value": "device"
+                            }
+                        ]
+                    },
+                    {
+                        "uuid": "fcd6e13c50bb4052beb17c46940b13a9",
+                        "name": "Cover 0: State",
+                        "type": "DEPENDENT",
+                        "key": "shelly.cover.state[0]",
+                        "value_type": "CHAR",
+                        "delay": "0",
+                        "history": "7d",
+                        "trends": "0",
+                        "master_item": {
+                            "key": "shelly.getstatus"
+                        },
+                        "description": "Cover/door state: open, closed, opening, closing, stopped, or calibrating.",
+                        "preprocessing": [
+                            {
+                                "type": "JSONPATH",
+                                "parameters": [
+                                    "$.['cover:0'].state"
+                                ],
+                                "error_handler": "DISCARD_VALUE",
+                                "error_handler_params": ""
+                            },
+                            {
+                                "type": "DISCARD_UNCHANGED_HEARTBEAT",
+                                "parameters": [
+                                    "1h"
+                                ]
+                            }
+                        ],
+                        "tags": [
+                            {
+                                "tag": "component",
+                                "value": "cover"
+                            },
+                            {
+                                "tag": "channel",
+                                "value": "0"
+                            }
+                        ]
+                    },
+                    {
+                        "uuid": "1f560944ae1c4750b29b5824c7c8db11",
+                        "name": "Cover 0: Active power",
+                        "type": "DEPENDENT",
+                        "key": "shelly.cover.apower[0]",
+                        "value_type": "FLOAT",
+                        "delay": "0",
+                        "history": "7d",
+                        "trends": "365d",
+                        "master_item": {
+                            "key": "shelly.getstatus"
+                        },
+                        "description": "Active power consumption of the cover/door motor in Watts.",
+                        "preprocessing": [
+                            {
+                                "type": "JSONPATH",
+                                "parameters": [
+                                    "$.['cover:0'].apower"
+                                ],
+                                "error_handler": "DISCARD_VALUE",
+                                "error_handler_params": ""
+                            }
+                        ],
+                        "tags": [
+                            {
+                                "tag": "component",
+                                "value": "cover"
+                            },
+                            {
+                                "tag": "channel",
+                                "value": "0"
+                            },
+                            {
+                                "tag": "metric",
+                                "value": "power"
+                            }
+                        ],
+                        "units": "W"
+                    },
+                    {
+                        "uuid": "6c64eb4144504ca4931c4f9fe9ffaa00",
+                        "name": "Cover 0: Voltage",
+                        "type": "DEPENDENT",
+                        "key": "shelly.cover.voltage[0]",
+                        "value_type": "FLOAT",
+                        "delay": "0",
+                        "history": "7d",
+                        "trends": "365d",
+                        "master_item": {
+                            "key": "shelly.getstatus"
+                        },
+                        "description": "AC mains voltage measured for the cover/door output.",
+                        "preprocessing": [
+                            {
+                                "type": "JSONPATH",
+                                "parameters": [
+                                    "$.['cover:0'].voltage"
+                                ],
+                                "error_handler": "DISCARD_VALUE",
+                                "error_handler_params": ""
+                            },
+                            {
+                                "type": "DISCARD_UNCHANGED_HEARTBEAT",
+                                "parameters": [
+                                    "1h"
+                                ]
+                            }
+                        ],
+                        "tags": [
+                            {
+                                "tag": "component",
+                                "value": "cover"
+                            },
+                            {
+                                "tag": "channel",
+                                "value": "0"
+                            },
+                            {
+                                "tag": "metric",
+                                "value": "power"
+                            }
+                        ],
+                        "units": "V"
+                    },
+                    {
+                        "uuid": "7fc7b3e107be4478b91acf722a8abfd4",
+                        "name": "Cover 0: Current",
+                        "type": "DEPENDENT",
+                        "key": "shelly.cover.current[0]",
+                        "value_type": "FLOAT",
+                        "delay": "0",
+                        "history": "7d",
+                        "trends": "365d",
+                        "master_item": {
+                            "key": "shelly.getstatus"
+                        },
+                        "description": "Load current used by the cover/door motor in Amperes.",
+                        "preprocessing": [
+                            {
+                                "type": "JSONPATH",
+                                "parameters": [
+                                    "$.['cover:0'].current"
+                                ],
+                                "error_handler": "DISCARD_VALUE",
+                                "error_handler_params": ""
+                            }
+                        ],
+                        "tags": [
+                            {
+                                "tag": "component",
+                                "value": "cover"
+                            },
+                            {
+                                "tag": "channel",
+                                "value": "0"
+                            },
+                            {
+                                "tag": "metric",
+                                "value": "power"
+                            }
+                        ],
+                        "units": "A"
+                    },
+                    {
+                        "uuid": "38be1f0d1eb745f3838a918ff2267dfe",
+                        "name": "Cover 0: AC frequency",
+                        "type": "DEPENDENT",
+                        "key": "shelly.cover.freq[0]",
+                        "value_type": "FLOAT",
+                        "delay": "0",
+                        "history": "7d",
+                        "trends": "365d",
+                        "master_item": {
+                            "key": "shelly.getstatus"
+                        },
+                        "description": "Mains AC frequency measured for the cover/door output.",
+                        "preprocessing": [
+                            {
+                                "type": "JSONPATH",
+                                "parameters": [
+                                    "$.['cover:0'].freq"
+                                ],
+                                "error_handler": "DISCARD_VALUE",
+                                "error_handler_params": ""
+                            },
+                            {
+                                "type": "DISCARD_UNCHANGED_HEARTBEAT",
+                                "parameters": [
+                                    "1h"
+                                ]
+                            }
+                        ],
+                        "tags": [
+                            {
+                                "tag": "component",
+                                "value": "cover"
+                            },
+                            {
+                                "tag": "channel",
+                                "value": "0"
+                            },
+                            {
+                                "tag": "metric",
+                                "value": "power"
+                            }
+                        ],
+                        "units": "Hz"
+                    },
+                    {
+                        "uuid": "ba1436a400e74fa8a8d03c4c33849d49",
+                        "name": "Cover 0: Power factor",
+                        "type": "DEPENDENT",
+                        "key": "shelly.cover.pf[0]",
+                        "value_type": "FLOAT",
+                        "delay": "0",
+                        "history": "7d",
+                        "trends": "365d",
+                        "master_item": {
+                            "key": "shelly.getstatus"
+                        },
+                        "description": "Power factor for the cover/door motor.",
+                        "preprocessing": [
+                            {
+                                "type": "JSONPATH",
+                                "parameters": [
+                                    "$.['cover:0'].pf"
+                                ],
+                                "error_handler": "DISCARD_VALUE",
+                                "error_handler_params": ""
+                            }
+                        ],
+                        "tags": [
+                            {
+                                "tag": "component",
+                                "value": "cover"
+                            },
+                            {
+                                "tag": "channel",
+                                "value": "0"
+                            },
+                            {
+                                "tag": "metric",
+                                "value": "power"
+                            }
+                        ]
+                    },
+                    {
+                        "uuid": "9b76f55cb6094eb5bb2540310e2f7132",
+                        "name": "Cover 0: Total energy consumed",
+                        "type": "DEPENDENT",
+                        "key": "shelly.cover.energy[0]",
+                        "value_type": "FLOAT",
+                        "delay": "0",
+                        "history": "7d",
+                        "trends": "365d",
+                        "master_item": {
+                            "key": "shelly.getstatus"
+                        },
+                        "description": "Cumulative total active energy consumed by the cover/door output in Watt-hours.",
+                        "preprocessing": [
+                            {
+                                "type": "JSONPATH",
+                                "parameters": [
+                                    "$.['cover:0'].aenergy.total"
+                                ],
+                                "error_handler": "DISCARD_VALUE",
+                                "error_handler_params": ""
+                            },
+                            {
+                                "type": "DISCARD_UNCHANGED_HEARTBEAT",
+                                "parameters": [
+                                    "1h"
+                                ]
+                            }
+                        ],
+                        "tags": [
+                            {
+                                "tag": "component",
+                                "value": "cover"
+                            },
+                            {
+                                "tag": "channel",
+                                "value": "0"
+                            },
+                            {
+                                "tag": "metric",
+                                "value": "power"
+                            }
+                        ],
+                        "units": "Wh"
+                    },
+                    {
+                        "uuid": "12f76e76ee2e48839213fb7f441fff6a",
+                        "name": "Cover 0: Temperature",
+                        "type": "DEPENDENT",
+                        "key": "shelly.cover.temperature[0]",
+                        "value_type": "FLOAT",
+                        "delay": "0",
+                        "history": "7d",
+                        "trends": "365d",
+                        "master_item": {
+                            "key": "shelly.getstatus"
+                        },
+                        "description": "Internal temperature reported for the cover/door component in Celsius.",
+                        "preprocessing": [
+                            {
+                                "type": "JSONPATH",
+                                "parameters": [
+                                    "$.['cover:0'].temperature.tC"
+                                ],
+                                "error_handler": "DISCARD_VALUE",
+                                "error_handler_params": ""
+                            },
+                            {
+                                "type": "DISCARD_UNCHANGED_HEARTBEAT",
+                                "parameters": [
+                                    "1h"
+                                ]
+                            }
+                        ],
+                        "tags": [
+                            {
+                                "tag": "component",
+                                "value": "cover"
+                            },
+                            {
+                                "tag": "channel",
+                                "value": "0"
+                            },
+                            {
+                                "tag": "metric",
+                                "value": "temperature"
+                            }
+                        ],
+                        "units": "°C"
+                    },
+                    {
+                        "uuid": "418cf86649af4fbfaa7a5783bbad046b",
+                        "name": "Cover 0: Last control source",
+                        "type": "DEPENDENT",
+                        "key": "shelly.cover.source[0]",
+                        "value_type": "CHAR",
+                        "delay": "0",
+                        "history": "7d",
+                        "trends": "0",
+                        "master_item": {
+                            "key": "shelly.getstatus"
+                        },
+                        "description": "The last source that changed the cover/door state.",
+                        "preprocessing": [
+                            {
+                                "type": "JSONPATH",
+                                "parameters": [
+                                    "$.['cover:0'].source"
+                                ],
+                                "error_handler": "DISCARD_VALUE",
+                                "error_handler_params": ""
+                            },
+                            {
+                                "type": "DISCARD_UNCHANGED_HEARTBEAT",
+                                "parameters": [
+                                    "1h"
+                                ]
+                            }
+                        ],
+                        "tags": [
+                            {
+                                "tag": "component",
+                                "value": "cover"
+                            },
+                            {
+                                "tag": "channel",
+                                "value": "0"
+                            }
+                        ]
+                    },
+                    {
+                        "uuid": "cb32f75f870948afba6b429ac8d8245d",
+                        "name": "Cover 0: Last direction",
+                        "type": "DEPENDENT",
+                        "key": "shelly.cover.last_direction[0]",
+                        "value_type": "CHAR",
+                        "delay": "0",
+                        "history": "7d",
+                        "trends": "0",
+                        "master_item": {
+                            "key": "shelly.getstatus"
+                        },
+                        "description": "Last movement direction reported by the cover component.",
+                        "preprocessing": [
+                            {
+                                "type": "JSONPATH",
+                                "parameters": [
+                                    "$.['cover:0'].last_direction"
+                                ],
+                                "error_handler": "DISCARD_VALUE",
+                                "error_handler_params": ""
+                            },
+                            {
+                                "type": "DISCARD_UNCHANGED_HEARTBEAT",
+                                "parameters": [
+                                    "1h"
+                                ]
+                            }
+                        ],
+                        "tags": [
+                            {
+                                "tag": "component",
+                                "value": "cover"
+                            },
+                            {
+                                "tag": "channel",
+                                "value": "0"
+                            }
+                        ]
+                    },
+                    {
+                        "uuid": "35990f88644541f281487030b73d5069",
+                        "name": "Cover 0: Current position",
+                        "type": "DEPENDENT",
+                        "key": "shelly.cover.position[0]",
+                        "value_type": "FLOAT",
+                        "delay": "0",
+                        "history": "7d",
+                        "trends": "365d",
+                        "master_item": {
+                            "key": "shelly.getstatus"
+                        },
+                        "description": "Current calibrated cover position, 0=fully closed and 100=fully open. Discarded when the device is uncalibrated or position is unknown. If Shelly does not currently expose current_pos, the item returns -1 and the value map displays Unknown / not available.",
+                        "preprocessing": [
+                            {
+                                "type": "JAVASCRIPT",
+                                "parameters": [
+                                    "var c = JSON.parse(value)['cover:0'];\nif (!c || c.current_pos === undefined || c.current_pos === null) { return -1; }\nreturn c.current_pos;"
+                                ]
+                            },
+                            {
+                                "type": "DISCARD_UNCHANGED_HEARTBEAT",
+                                "parameters": [
+                                    "1h"
+                                ]
+                            }
+                        ],
+                        "tags": [
+                            {
+                                "tag": "component",
+                                "value": "cover"
+                            },
+                            {
+                                "tag": "channel",
+                                "value": "0"
+                            },
+                            {
+                                "tag": "metric",
+                                "value": "position"
+                            }
+                        ],
+                        "units": "%",
+                        "valuemap": {
+                            "name": "Shelly cover position"
+                        }
+                    },
+                    {
+                        "uuid": "1ab9eeae5aca49efa310e5f53b72ae18",
+                        "name": "Cover 0: Target position",
+                        "type": "DEPENDENT",
+                        "key": "shelly.cover.target_position[0]",
+                        "value_type": "FLOAT",
+                        "delay": "0",
+                        "history": "7d",
+                        "trends": "365d",
+                        "master_item": {
+                            "key": "shelly.getstatus"
+                        },
+                        "description": "Target cover position, 0=fully closed and 100=fully open. Discarded when not available. If no active target_pos is exposed, the item returns -1 and the value map displays Unknown / not available.",
+                        "preprocessing": [
+                            {
+                                "type": "JAVASCRIPT",
+                                "parameters": [
+                                    "var c = JSON.parse(value)['cover:0'];\nif (!c || c.target_pos === undefined || c.target_pos === null) { return -1; }\nreturn c.target_pos;"
+                                ]
+                            },
+                            {
+                                "type": "DISCARD_UNCHANGED_HEARTBEAT",
+                                "parameters": [
+                                    "1h"
+                                ]
+                            }
+                        ],
+                        "tags": [
+                            {
+                                "tag": "component",
+                                "value": "cover"
+                            },
+                            {
+                                "tag": "channel",
+                                "value": "0"
+                            },
+                            {
+                                "tag": "metric",
+                                "value": "position"
+                            }
+                        ],
+                        "units": "%",
+                        "valuemap": {
+                            "name": "Shelly cover position"
+                        }
+                    },
+                    {
+                        "uuid": "84a57ffd12504818a9cad3092645ed27",
+                        "name": "Cover 0: Position control available",
+                        "type": "DEPENDENT",
+                        "key": "shelly.cover.pos_control[0]",
+                        "value_type": "UNSIGNED",
+                        "delay": "0",
+                        "history": "7d",
+                        "trends": "365d",
+                        "master_item": {
+                            "key": "shelly.getstatus"
+                        },
+                        "description": "1 if valid calibration data is available and position control can be used, 0 otherwise.",
+                        "preprocessing": [
+                            {
+                                "type": "JAVASCRIPT",
+                                "parameters": [
+                                    "var c = JSON.parse(value)['cover:0']; if (!c || c.pos_control === undefined) throw 'cover pos_control not available'; return c.pos_control ? 1 : 0;"
+                                ],
+                                "error_handler": "DISCARD_VALUE",
+                                "error_handler_params": ""
+                            },
+                            {
+                                "type": "DISCARD_UNCHANGED_HEARTBEAT",
+                                "parameters": [
+                                    "1h"
+                                ]
+                            }
+                        ],
+                        "tags": [
+                            {
+                                "tag": "component",
+                                "value": "cover"
+                            },
+                            {
+                                "tag": "channel",
+                                "value": "0"
+                            },
+                            {
+                                "tag": "metric",
+                                "value": "position"
+                            }
+                        ],
+                        "valuemap": {
+                            "name": "Boolean (Yes/No)"
+                        }
+                    },
+                    {
+                        "uuid": "621228ef5d8b42c597f06044d3ee4568",
+                        "name": "Cover 0: Error list",
+                        "type": "DEPENDENT",
+                        "key": "shelly.cover.errors[0]",
+                        "value_type": "CHAR",
+                        "delay": "0",
+                        "history": "7d",
+                        "trends": "0",
+                        "master_item": {
+                            "key": "shelly.getstatus"
+                        },
+                        "description": "Comma-separated cover error list, or none when no cover errors are reported.",
+                        "preprocessing": [
+                            {
+                                "type": "JAVASCRIPT",
+                                "parameters": [
+                                    "var c = JSON.parse(value)['cover:0']; if (!c) throw 'cover not present'; return (Array.isArray(c.errors) && c.errors.length) ? c.errors.join(',') : 'none';"
+                                ],
+                                "error_handler": "DISCARD_VALUE",
+                                "error_handler_params": ""
+                            },
+                            {
+                                "type": "DISCARD_UNCHANGED_HEARTBEAT",
+                                "parameters": [
+                                    "10m"
+                                ]
+                            }
+                        ],
+                        "tags": [
+                            {
+                                "tag": "component",
+                                "value": "cover"
+                            },
+                            {
+                                "tag": "channel",
+                                "value": "0"
+                            },
+                            {
+                                "tag": "metric",
+                                "value": "errors"
+                            }
+                        ]
+                    },
+                    {
+                        "uuid": "a731806802e84778b62613f4ba7acc21",
+                        "name": "Cover 0: Error count",
+                        "type": "DEPENDENT",
+                        "key": "shelly.cover.error.count[0]",
+                        "value_type": "UNSIGNED",
+                        "delay": "0",
+                        "history": "7d",
+                        "trends": "365d",
+                        "master_item": {
+                            "key": "shelly.getstatus"
+                        },
+                        "description": "Number of active cover error conditions.",
+                        "preprocessing": [
+                            {
+                                "type": "JAVASCRIPT",
+                                "parameters": [
+                                    "var c = JSON.parse(value)['cover:0']; if (!c) throw 'cover not present'; return Array.isArray(c.errors) ? c.errors.length : 0;"
+                                ],
+                                "error_handler": "DISCARD_VALUE",
+                                "error_handler_params": ""
+                            }
+                        ],
+                        "tags": [
+                            {
+                                "tag": "component",
+                                "value": "cover"
+                            },
+                            {
+                                "tag": "channel",
+                                "value": "0"
+                            },
+                            {
+                                "tag": "metric",
+                                "value": "errors"
+                            }
+                        ]
+                    }
+                ],
+                "tags": [
+                    {
+                        "tag": "class",
+                        "value": "IoT"
+                    },
+                    {
+                        "tag": "target",
+                        "value": "Shelly"
+                    }
+                ],
+                "macros": [
+                    {
+                        "macro": "{$SHELLY_HOST}",
+                        "value": "",
+                        "description": "Shelly IP address or DNS name without protocol, e.g. 192.168.1.50."
+                    },
+                    {
+                        "macro": "{$SHELLY_USER}",
+                        "value": "admin",
+                        "description": "HTTP username for Shelly device authentication. Default is usually admin."
+                    },
+                    {
+                        "macro": "{$SHELLY_PASS}",
+                        "value": "",
+                        "type": "SECRET_TEXT",
+                        "description": "HTTP password for Shelly device authentication. Required for Shelly.GetStatus when auth is enabled."
+                    },
+                    {
+                        "macro": "{$SHELLY.INTERVAL}",
+                        "value": "60s",
+                        "description": "Polling interval for the /rpc/Shelly.GetStatus master item. All dependent items inherit this cadence."
+                    },
+                    {
+                        "macro": "{$SHELLY.TEMP.MAX}",
+                        "value": "75",
+                        "description": "Maximum acceptable relay temperature in Celsius before a WARNING trigger fires."
+                    },
+                    {
+                        "macro": "{$SHELLY.RSSI.MIN}",
+                        "value": "-80",
+                        "description": "Minimum acceptable WiFi RSSI in dBm before a WARNING trigger fires."
+                    },
+                    {
+                        "macro": "{$SHELLY.POWER.MAX.CH0}",
+                        "value": "2300",
+                        "description": "Maximum power threshold for channel 0 in Watts. 2PM Gen4 is rated for 10A / ~2300W per channel."
+                    },
+                    {
+                        "macro": "{$SHELLY.POWER.MAX.CH1}",
+                        "value": "2300",
+                        "description": "Maximum power threshold for channel 1 in Watts."
+                    },
+                    {
+                        "macro": "{$SHELLY.POWER.MAX.COVER}",
+                        "value": "2300",
+                        "description": "Maximum power threshold for cover/door motor in Watts."
+                    },
+                    {
+                        "macro": "{$SHELLY.NODATA.TIME}",
+                        "value": "5m",
+                        "description": "Duration without a successful poll before the device-unreachable trigger fires. Should be several multiples of {$SHELLY.INTERVAL}."
+                    }
+                ],
+                "valuemaps": [
+                    {
+                        "uuid": "eeff0001000040008000000000000001",
+                        "name": "Shelly relay state",
+                        "mappings": [
+                            {
+                                "value": "0",
+                                "newvalue": "OFF"
+                            },
+                            {
+                                "value": "1",
+                                "newvalue": "ON"
+                            }
+                        ]
+                    },
+                    {
+                        "uuid": "eeff0001000040008000000000000002",
+                        "name": "Boolean (Yes/No)",
+                        "mappings": [
+                            {
+                                "value": "0",
+                                "newvalue": "No"
+                            },
+                            {
+                                "value": "1",
+                                "newvalue": "Yes"
+                            }
+                        ]
+                    },
+                    {
+                        "uuid": "eeff0001000040008000000000000003",
+                        "name": "Shelly input state",
+                        "mappings": [
+                            {
+                                "value": "0",
+                                "newvalue": "Open / Released"
+                            },
+                            {
+                                "value": "1",
+                                "newvalue": "Closed / Pressed"
+                            }
+                        ]
+                    },
+                    {
+                        "uuid": "f11f3b04cb354e10ab523bf0dda3223a",
+                        "name": "Shelly cover position",
+                        "mappings": [
+                            {
+                                "value": "-1",
+                                "newvalue": "Unknown / not available"
+                            }
+                        ]
+                    }
+                ]
+            }
+        ],
+        "triggers": [
+            {
+                "uuid": "ccdd0001000040008000000000000001",
+                "expression": "nodata(/Shelly 2PM Gen4/shelly.getstatus,{$SHELLY.NODATA.TIME})=1",
+                "name": "Shelly 2PM: Device is unreachable",
+                "priority": "HIGH",
+                "manual_close": "YES",
+                "description": "The device has not returned data for {$SHELLY.NODATA.TIME}. Check power, network connectivity, and that the device IP is reachable.",
+                "tags": [
+                    {
+                        "tag": "scope",
+                        "value": "availability"
+                    }
+                ]
+            },
+            {
+                "uuid": "ccdd0001000040008000000000000002",
+                "expression": "last(/Shelly 2PM Gen4/shelly.switch.temperature[0])>={$SHELLY.TEMP.MAX}",
+                "name": "Shelly 2PM: Channel 0 relay temperature too high (>={$SHELLY.TEMP.MAX}°C)",
+                "priority": "WARNING",
+                "description": "Channel 0 internal relay temperature has reached or exceeded {$SHELLY.TEMP.MAX}°C. The device may throttle or cut power to protect itself.",
+                "tags": [
+                    {
+                        "tag": "scope",
+                        "value": "notice"
+                    },
+                    {
+                        "tag": "channel",
+                        "value": "0"
+                    }
+                ]
+            },
+            {
+                "uuid": "ccdd0001000040008000000000000003",
+                "expression": "last(/Shelly 2PM Gen4/shelly.switch.temperature[1])>={$SHELLY.TEMP.MAX}",
+                "name": "Shelly 2PM: Channel 1 relay temperature too high (>={$SHELLY.TEMP.MAX}°C)",
+                "priority": "WARNING",
+                "description": "Channel 1 internal relay temperature has reached or exceeded {$SHELLY.TEMP.MAX}°C. The device may throttle or cut power to protect itself.",
+                "tags": [
+                    {
+                        "tag": "scope",
+                        "value": "notice"
+                    },
+                    {
+                        "tag": "channel",
+                        "value": "1"
+                    }
+                ]
+            },
+            {
+                "uuid": "ccdd0001000040008000000000000004",
+                "expression": "last(/Shelly 2PM Gen4/shelly.wifi.rssi)<{$SHELLY.RSSI.MIN}",
+                "name": "Shelly 2PM: WiFi signal is poor (RSSI < {$SHELLY.RSSI.MIN} dBm)",
+                "priority": "WARNING",
+                "description": "WiFi signal strength has dropped below {$SHELLY.RSSI.MIN} dBm. This may cause intermittent connectivity or polling failures.",
+                "tags": [
+                    {
+                        "tag": "scope",
+                        "value": "notice"
+                    },
+                    {
+                        "tag": "component",
+                        "value": "wifi"
+                    }
+                ]
+            },
+            {
+                "uuid": "ccdd0001000040008000000000000005",
+                "expression": "last(/Shelly 2PM Gen4/shelly.sys.restart.required)=1",
+                "name": "Shelly 2PM: Device restart required",
+                "priority": "WARNING",
+                "manual_close": "YES",
+                "description": "The device has flagged that a reboot is required to apply a pending configuration change.",
+                "tags": [
+                    {
+                        "tag": "scope",
+                        "value": "notice"
+                    },
+                    {
+                        "tag": "component",
+                        "value": "system"
+                    }
+                ]
+            },
+            {
+                "uuid": "ccdd0001000040008000000000000006",
+                "expression": "last(/Shelly 2PM Gen4/shelly.sys.uptime)<600 and change(/Shelly 2PM Gen4/shelly.sys.uptime)<0",
+                "name": "Shelly 2PM: Device has rebooted",
+                "priority": "INFO",
+                "manual_close": "YES",
+                "description": "The device uptime counter has reset, indicating an unexpected or scheduled reboot. Uptime is currently under 10 minutes.",
+                "tags": [
+                    {
+                        "tag": "scope",
+                        "value": "notice"
+                    },
+                    {
+                        "tag": "component",
+                        "value": "system"
+                    }
+                ]
+            },
+            {
+                "uuid": "ccdd0001000040008000000000000007",
+                "expression": "last(/Shelly 2PM Gen4/shelly.switch.apower[0])>{$SHELLY.POWER.MAX.CH0}",
+                "name": "Shelly 2PM: Channel 0 power consumption exceeds threshold (>{$SHELLY.POWER.MAX.CH0} W)",
+                "priority": "WARNING",
+                "description": "Active power on channel 0 has exceeded the configured threshold of {$SHELLY.POWER.MAX.CH0} W. Check the connected load.",
+                "tags": [
+                    {
+                        "tag": "scope",
+                        "value": "notice"
+                    },
+                    {
+                        "tag": "channel",
+                        "value": "0"
+                    }
+                ]
+            },
+            {
+                "uuid": "ccdd0001000040008000000000000008",
+                "expression": "last(/Shelly 2PM Gen4/shelly.switch.apower[1])>{$SHELLY.POWER.MAX.CH1}",
+                "name": "Shelly 2PM: Channel 1 power consumption exceeds threshold (>{$SHELLY.POWER.MAX.CH1} W)",
+                "priority": "WARNING",
+                "description": "Active power on channel 1 has exceeded the configured threshold of {$SHELLY.POWER.MAX.CH1} W. Check the connected load.",
+                "tags": [
+                    {
+                        "tag": "scope",
+                        "value": "notice"
+                    },
+                    {
+                        "tag": "channel",
+                        "value": "1"
+                    }
+                ]
+            },
+            {
+                "uuid": "ccdd0001000040008000000000000009",
+                "expression": "last(/Shelly 2PM Gen4/shelly.sys.update.available)=1",
+                "name": "Shelly 2PM: Stable firmware update is available",
+                "priority": "INFO",
+                "manual_close": "YES",
+                "description": "The device API reports a new stable firmware version is available. Update via the Shelly app or web UI at http://{$SHELLY_HOST}",
+                "tags": [
+                    {
+                        "tag": "scope",
+                        "value": "notice"
+                    },
+                    {
+                        "tag": "component",
+                        "value": "system"
+                    }
+                ]
+            },
+            {
+                "uuid": "d8b75c35ecab4161b088cf3dce9ea899",
+                "expression": "last(/Shelly 2PM Gen4/shelly.cover.temperature[0])>={$SHELLY.TEMP.MAX}",
+                "name": "Shelly 2PM: Cover temperature too high (>={$SHELLY.TEMP.MAX}°C)",
+                "priority": "WARNING",
+                "description": "The cover/door component temperature has reached or exceeded {$SHELLY.TEMP.MAX}°C.",
+                "tags": [
+                    {
+                        "tag": "scope",
+                        "value": "notice"
+                    },
+                    {
+                        "tag": "component",
+                        "value": "cover"
+                    }
+                ]
+            },
+            {
+                "uuid": "6cc7f84c27de408a919dac0ab9f5e1e7",
+                "expression": "last(/Shelly 2PM Gen4/shelly.cover.apower[0])>{$SHELLY.POWER.MAX.COVER}",
+                "name": "Shelly 2PM: Cover power consumption exceeds threshold (>{$SHELLY.POWER.MAX.COVER} W)",
+                "priority": "WARNING",
+                "description": "Active power on the cover/door motor has exceeded the configured threshold of {$SHELLY.POWER.MAX.COVER} W.",
+                "tags": [
+                    {
+                        "tag": "scope",
+                        "value": "notice"
+                    },
+                    {
+                        "tag": "component",
+                        "value": "cover"
+                    }
+                ]
+            },
+            {
+                "uuid": "5fc7f5e28f064fb7bd0fbe2995666dc6",
+                "expression": "last(/Shelly 2PM Gen4/shelly.cover.error.count[0])>0",
+                "name": "Shelly 2PM: Cover reports active error condition",
+                "priority": "WARNING",
+                "manual_close": "YES",
+                "description": "The cover/door component reports one or more active error conditions. Check the Cover 0: Error list item.",
+                "tags": [
+                    {
+                        "tag": "scope",
+                        "value": "notice"
+                    },
+                    {
+                        "tag": "component",
+                        "value": "cover"
+                    }
+                ]
+            }
+        ]
+    }
+}
