@@ -13,6 +13,9 @@ It supports both common operating modes:
 
 No Shelly Cloud dependency. Just Zabbix, HTTP, and your local network.
 
+## Screenshot
+![Shelly 2PM Gen4 in Zabbix](docs/images/zabbix-items-room-door.png)
+
 ## What it monitors
 
 - Reachability and no-data state
