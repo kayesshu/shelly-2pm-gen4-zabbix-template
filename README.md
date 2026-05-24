@@ -1,0 +1,173 @@
+# Shelly 2PM Gen4 Zabbix Template
+
+[![Zabbix](https://img.shields.io/badge/Zabbix-7.4-red)](https://www.zabbix.com/)
+[![Shelly](https://img.shields.io/badge/Shelly-2PM%20Gen4-blue)](https://www.shelly.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
+A clean, local **Zabbix 7.4** template for monitoring **Shelly 2PM Gen4** devices through the Shelly HTTP RPC API.
+
+It supports both common operating modes:
+
+- **Switch mode**: `switch:0` and `switch:1`
+- **Cover / door / blind mode**: `cover:0`
+
+No Shelly Cloud dependency. Just Zabbix, HTTP, and your local network.
+
+## What it monitors
+
+- Reachability and no-data state
+- Wi-Fi RSSI, SSID, and IP address
+- Device model, firmware, and update availability
+- Uptime, RAM, and filesystem status
+- Switch channel power, voltage, current, frequency, energy, and temperature
+- Cover state, direction, power, voltage, current, frequency, energy, temperature, and optional position
+- Physical input states: `input:0` and `input:1`
+
+## Repository layout
+
+```text
+.
+├── README.md
+├── LICENSE
+├── CHANGELOG.md
+├── CONTRIBUTING.md
+└── templates/
+    └── shelly-2pm-gen4-zabbix-7.4.json
+```
+
+## Requirements
+
+- Zabbix 7.4
+- Shelly 2PM Gen4, or a compatible Shelly Gen2+/Gen4 RPC device
+- Network access from Zabbix server or proxy to the Shelly device
+- HTTP access enabled on the Shelly device
+
+## Install
+
+1. Download this repository or clone it.
+2. In Zabbix, open **Data collection → Templates → Import**.
+3. Import:
+
+   ```text
+   templates/shelly-2pm-gen4-zabbix-7.4.json
+   ```
+
+4. Open or create a host for your Shelly device.
+5. Link the template:
+
+   ```text
+   Shelly 2PM Gen4
+   ```
+
+6. Add the required host macros below.
+
+## Required host macros
+
+Set these on each Shelly host.
+
+| Macro | Example | Description |
+|---|---:|---|
+| `{$SHELLY_HOST}` | `192.168.1.50` | Shelly IP or DNS name only, without `http://` |
+| `{$SHELLY_USER}` | `admin` | Shelly HTTP username |
+| `{$SHELLY_PASS}` | `mySecretPassword` | Shelly HTTP password, stored as secret text |
+
+The template builds the URLs like this:
+
+```text
+http://{$SHELLY_HOST}/rpc/Shelly.GetStatus
+http://{$SHELLY_HOST}/rpc/Shelly.GetDeviceInfo
+```
+
+So use this:
+
+```text
+{$SHELLY_HOST}=192.168.1.50
+```
+
+Not this:
+
+```text
+{$SHELLY_HOST}=http://192.168.1.50
+```
+
+## Tunable settings
+
+These macros are optional. Override them per host when needed.
+
+| Macro | Default | Description |
+|---|---:|---|
+| `{$SHELLY.INTERVAL}` | `60s` | Main polling interval for `Shelly.GetStatus` |
+| `{$SHELLY.NODATA.TIME}` | `5m` | Time without data before the unreachable trigger fires |
+| `{$SHELLY.RSSI.MIN}` | `-80` | Minimum acceptable Wi-Fi RSSI in dBm |
+| `{$SHELLY.TEMP.MAX}` | `75` | Maximum acceptable relay / cover temperature in °C |
+| `{$SHELLY.POWER.MAX.CH0}` | `2300` | Maximum power threshold for switch channel 0 in W |
+| `{$SHELLY.POWER.MAX.CH1}` | `2300` | Maximum power threshold for switch channel 1 in W |
+| `{$SHELLY.POWER.MAX.COVER}` | `2300` | Maximum power threshold for cover / door motor in W |
+
+## Use
+
+After import and macro setup:
+
+1. Go to **Monitoring → Hosts**.
+2. Open your Shelly host.
+3. Check **Latest data**.
+4. Search for:
+
+   ```text
+   Shelly
+   Channel
+   Cover
+   Input
+   WiFi
+   ```
+
+For a normal dual-relay setup, use the **Channel 0** and **Channel 1** items.
+
+For a door, shutter, blind, or roller setup, use the **Cover 0** items. In cover mode, Channel 0/1 items can stay empty because the device exposes `cover:0` instead of `switch:0` and `switch:1`.
+
+## Authentication
+
+The template uses **Digest authentication** for the HTTP agent master items. This is needed for protected Shelly RPC calls such as `Shelly.GetStatus`.
+
+If `Shelly.GetDeviceInfo` works but `Shelly.GetStatus` returns `401`, check:
+
+- `{$SHELLY_USER}`
+- `{$SHELLY_PASS}`
+- the password in the Shelly web UI
+- that the host item still uses Digest authentication after import
+
+## Common notes
+
+### Cover position shows Unknown
+
+`current_pos` and `target_pos` are optional Shelly fields. They are usually available only after cover calibration, and `target_pos` may exist only while the cover is moving to a requested position.
+
+This template maps missing cover position values to:
+
+```text
+Unknown / not available
+```
+
+### Physical buttons are not Channel 0/1
+
+- `switch:0` / `switch:1` are output channels in switch mode.
+- `cover:0` is the cover / door / blind component in cover mode.
+- `input:0` / `input:1` are the physical wall switch or button inputs.
+
+## Suggested repository metadata
+
+Description:
+
+```text
+Zabbix 7.4 template for Shelly 2PM Gen4 with switch mode, cover mode, Digest auth, and local HTTP RPC monitoring.
+```
+
+Topics:
+
+```text
+zabbix shelly shelly-2pm home-automation iot monitoring smart-home zabbix-template
+```
+
+## License
+
+MIT — see [LICENSE](LICENSE).
